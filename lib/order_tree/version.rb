@@ -1,0 +1,3 @@
+module OrderTree
+  VERSION = "0.0.1"
+end
