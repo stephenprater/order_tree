@@ -1,4 +1,5 @@
 require 'rspec'
+require 'pp'
 
 require 'order_tree'
 
@@ -40,12 +41,21 @@ describe OrderTree::OrderTree do
       }
     }
     
-     @order = [[:from], [:from, :a], [:from, :a, :b], [:from, :a, :c],
-     [:to], [:to, :d], [:to, :e], 
-     [:to, :to_to], [:to, :to_to, :f], [:to, :to_to, :g], [:to, :to_to, :h]]
+    @order = [[:from, :a, :b],
+              [:from, :a, :c],
+              [:from, :a],
+              [:from],
+              [:to, :d],
+              [:to, :e],
+              [:to, :to_to, :f],
+              [:to, :to_to, :g],
+              [:to, :to_to, :h],
+              [:to, :to_to],
+              [:to]]
   end
 
   it "initializes with a hash" do
+    debugger
     ot = OrderTree::OrderTree.new(@testhash)
   end
 
@@ -66,7 +76,50 @@ describe OrderTree::OrderTree do
   it "remember the order" do
     ot = OrderTree::OrderTree.new(@testhash)
     debugger
-    ot.order
+    ot.each_path.to_a.should eq @order
   end
+
+  it "does not reify the hash on access" do
+    ot = OrderTree::OrderTree.new
+    lambda do 
+      ot[:a, :b, :c] = 4
+    end.should raise_error NoMethodError
+  end
+
+  it "remembers the order after initialize" do
+    ot = OrderTree::OrderTree.new
+    order_paths = [[:a],
+                   [:a, :a1],
+                   [:a, :a2],
+                   [:b],
+                   [:b, :c],
+                   [:b, :c, :d]]
+    order_paths.map do |v|
+      if [[:a], [:b], [:b, :c]].include? v
+        ot[*v] = {}
+      else
+        ot[*v] = 4
+      end
+    end
+    ot.each_path.to_a.should eq order_paths
+  end
+
+  it "overwriting a key moves it to the end of the order" do
+    ot = OrderTree::OrderTree.new
+    ot[:a] = 4
+    ot[:b] = 4
+    ot.each_path.to_a.should eq [[:a], [:b]]
+    ot[:a] = 5
+    debugger
+    ot.each_path.to_a.should eq [[:b], [:a]]
+  end
+
+  it "overwriting a nested keys moves to the end of the order" do
+    ot = OrderTree::OrderTree.new( {:a => { :b => 4}, :c => 5})
+    ot.each_path.to_a.should eq [[:a, :b], [:a], [:c]]
+    ot[:a,:b] = 5
+    ot.each_path.to_a.should eq [[:a], [:c], [:a, :b]]
+  end
+
 end
     

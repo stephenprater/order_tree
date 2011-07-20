@@ -19,11 +19,12 @@ module OrderTree
     def initialize obj
       @is_proxy = true
       @obj = obj
+      @uuid ||= ::SecureRandom.uuid
     end
 
     # @return [String] the unique ID of the proxy
     def unique_id
-      @uuid ||= ::SecureRandom.uuid
+      @uuid
     end
 
     # Is true only if the other object has the same unique_id as self
@@ -55,8 +56,25 @@ module OrderTree
     def != arg
       @obj != arg
     end
+  end
 
+  class OrderTreeNode < UniqueProxy
+    attr_accessor :next, :prev
+    attr_accessor :tree
+    attr_reader :path
 
+    def initialize obj, tree
+      super(obj)
+      @tree = tree
+    end
+
+    def path
+      @path || path!
+    end
+    
+    def path!
+      @path = tree.root.strict_path self
+    end
   end
 end
 
