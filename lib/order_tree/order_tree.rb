@@ -6,13 +6,14 @@ module OrderTree
   # the values in the order in which they were inserted, regardless of depth
   # It can mostly be treated as a nested hash - but #each will return a #path
   # to the values it iterates
-  class OrderTree < Delegator
+  class OrderTree
+    include Enumerable
 
     class PathNotFound < StandardError; end
 
     attr_accessor :last
     attr_accessor :root
-    attr_reader :first
+    attr_accessor :first
   
     # Create a new OrderTree
     # @param [Hash] constructor - a hash literal for the initial values
@@ -20,12 +21,12 @@ module OrderTree
     # @note The order of insertion might not be what you would expect for multi-
     #   level hash literals. The most deeply nested values will be inserted FIRST.
     def initialize(constructor = {}, root = nil) 
-      @delegate_hash = {} 
-      super(@delegate_hash)
+      @_delegate_hash = {} 
       self.root = root || self 
       constructor.each_with_object(self) do |(k,v),memo|
         memo[k] = v
       end
+      self.default = OrderTreeNode.new(nil,self)
     end
 
     def last= obj
@@ -42,8 +43,11 @@ module OrderTree
     # is not remembered within the order
     # @param [Object] obj
     def default= obj
-      @default = UniqueProxy.new(obj)
+      @default = OrderTreeNode.new(obj,self)
+      _delegate_hash.default= @default 
     end
+    
+    attr_reader :default
 
     # Yields each path, value pair of the OrderTree in the order in which it was
     # inserted
@@ -53,9 +57,8 @@ module OrderTree
     # @yieldparam [Object] value the original object stored in the OrderTree
     def each
       return enum_for(:each) unless block_given?
-      ep, ev = self.each_path, self.each_value
-      loop do
-        yield ep.next, ev.next
+      self.each_insertion do |c|
+        yield c.path, c.orig 
       end
     end
 
@@ -63,24 +66,41 @@ module OrderTree
     def order
       each.to_a
     end
-
-    # @return [Array] collection of paths in insertion order
-    def each_path 
-      return enum_for(:each_path) unless block_given?
+    
+    # @return [Enumerator] collection of OrderTreeNode objects in insertion order
+    def each_insertion
+      return enum_for(:each_insertion) unless block_given?
       c = root.first
       while c
-        yield c.path
+        yield c
         c = c.next
       end
     end
 
-    # @return [Array] collection ov values in insertion order
+    # @return [Enumerator] collection of paths in insertion order
+    def each_path 
+      return enum_for(:each_path) unless block_given?
+      self.each_insertion do |v|
+        yield v.path
+      end
+    end
+    
+    # @return [Enumerator] collection of leaf values in insertion order
+    def each_leaf
+      return enum_for(:each_leaf) unless block_given?
+      self.each_insertion do |v|
+        unless v.is_a? OrderTree
+          yield v.orig
+        end
+      end
+    end
+        
+        
+    # @return [Enumerator] collection of values in insertion order, including subnodes
     def each_value 
       return enum_for(:each_value) unless block_given?
-      c = root.first
-      while c
-        yield c.orig
-        c = c.next
+      self.each_insertion do |v|
+        yield v.orig
       end
     end
 
@@ -123,7 +143,7 @@ module OrderTree
     def __path val = nil, strict = false, key_path = [], &block
       op = strict ? :equal? : :==
       return true if (yield(val) unless block.nil?) or self.__send__ op, val 
-      self.__getobj__.each do |k,v|
+      _delegate_hash.each do |k,v|
         if (yield v unless block.nil?) or v.__send__ op, val
           key_path << k 
           break
@@ -141,41 +161,58 @@ module OrderTree
    
     # @private
     # @api Delegate
-    def __getobj__
-      @delegate_hash
+    def _delegate_hash 
+      @_delegate_hash
     end
-
-    # @private
-    # @api Delegate
-    def __setobj__(obj)
-      @delegate_hash = obj
-    end
-
-
+    private :_delegate_hash
+    
     def to_s
       "#<#{self.class}:#{'0x%x' % self.__id__ << 1}>"
     end
 
+    def inspect
+      _delegate_hash.inspect
+    end
+
+    # @param [OrderTree] other
+    # @return [true] if self and other do not share all leaves or were inserted in a different order
+    def != other
+      !(self == other)
+    end
     
     # @param [OrderTree] other
-    # @return [true] if other.order == self.order
-    # @see #order
-    def == other
+    # @return [true] if self and other share all of their leaves and were inserted in the same order
+    def == other 
       return false if other.class != self.class
-      begin
-        other.order == self.order
-      rescue NoMethodError => e
-        if e.name == :order
+      ov,sv = other.each_value.to_a, self.each_value.to_a
+      t_arr = ov.size > sv.size ? (ov.zip(sv)) : (sv.zip(ov))
+      t_arr.each do |sv, ov|
+        return false if sv.nil? ^ ov.nil?
+        if [ov,sv].map { |v| v.respond_to? :_delegate_hash, true}.all?
+          return false unless ov.send(:_delegate_hash) == sv.send(:_delegate_hash)
+        elsif ov != sv
           return false
         end
       end
     end
    
+    # @param [OrderTree] other
+    # @return [true] if self and other contains the same key/path pairs as leaf nodes, regardless of their
+    #   order of insertion
+    def contents_equal? other
+      return false if other.class != self.class
+      ov,sv = other.each_leaf.to_a.sort, self.each_leaf.to_a.sort
+      t_arr = ov.size > sv.size ? (ov.zip(sv)) : (sv.zip(ov))
+      t_arr.each do |sv,ov|
+        return false unless sv == ov
+      end
+    end
+   
     # Returns the UniqueProxy at path.
     # @param [Array] path the path to return
-    # @return [Object, Array] either OrderTree default or the path as an array
+    # @return [OrdeTreeNode] either OrderTreeNode default or the OrderTreeNode at path 
     def at *paths
-      t = @delegate_hash 
+      t = @_delegate_hash 
       begin
         paths.each do |p|
           t = t.respond_to?(:at) ? t.at(p) : t[p]
@@ -207,10 +244,10 @@ module OrderTree
       under = self
       paths.each do |k|
         under = under.instance_eval do
-          unless self.respond_to? :__getobj__
+          unless self.respond_to? :_delegate_hash, true
             raise NoMethodError, "Can't reifiy tree leaf on access to #{paths}"
           end
-          h = self.__getobj__
+          h = self.send :_delegate_hash
           if h.has_key? k and k != paths.last
             h[k]
           else
@@ -221,7 +258,13 @@ module OrderTree
 
       if value.kind_of? Hash or value.kind_of? OrderTree
         value = OrderTree.new(value, @root)
+        value.default= self.root.default
       end
+
+      if under[paths.last] # i am overwriting a path
+        under.delete(paths.last).remove
+      end
+
       under[paths.last] = OrderTreeNode.new(value, self)
       under[paths.last].prev = root.last if root.last
       root.last.next = under[paths.last] if root.last

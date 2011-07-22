@@ -4,7 +4,8 @@ module OrderTree
   
   module ProxyOperator
     def proxy? obj
-      true if obj.get_instance_variable :@is_proxy
+      !!(obj.instance_eval { @is_proxy })
+    rescue false
     end
     module_function :proxy?
   end
@@ -68,12 +69,44 @@ module OrderTree
       @tree = tree
     end
 
+    def remove
+      @path = nil
+      self.next.prev = self.prev || nil 
+      if self.tree.root.first == self
+        self.tree.root.first = self.next
+      end
+      @tree = nil
+      @next = nil
+      @prev = nil
+      self
+    end
+
+    def <=> other
+      unless other.is_a? OrderTreeNode
+        raise TypeError, "Can't compare OrderTreeNode with other types"
+      end
+      if self.equal? other
+        return 0
+      else
+        p = self.prev
+        while p
+          return 1 if p.equal? other
+          p = self.prev
+        end
+        n = self.next 
+        while n
+          return -1 if n.equal? other
+          n = self.next
+        end
+      end
+    end
+
     def path
-      @path || path!
+      @path || self.path!
     end
     
     def path!
-      @path = tree.root.strict_path self
+      @path = self.tree.root.strict_path self
     end
   end
 end

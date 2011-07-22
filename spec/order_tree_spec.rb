@@ -23,6 +23,14 @@ describe OrderTree::UniqueProxy do
     b = OrderTree::UniqueProxy.new(4)
     a.unique_id.should_not eq b.unique_id
   end
+
+  it "can identify a proxy" do
+    Object.send :include, OrderTree::ProxyOperator
+    a = OrderTree::UniqueProxy.new(5)
+    debugger
+    (proxy? a).should be_true
+    (proxy? 5).should be_false
+  end
 end
 
 describe OrderTree::OrderTree do
@@ -44,6 +52,24 @@ describe OrderTree::OrderTree do
         }
       }
     }
+
+    @testhash_insertion = { 
+      :to => {
+        :d => 4,
+        :e => 4,
+        :to_to => {
+          :f => 5,
+          :g => 6,
+          :h => 7,
+        }
+      },
+      :from => {
+        :a => {
+          :b => 4,
+          :c => 4,
+        }
+      }
+    }
     
     @order = [[:from, :a, :b],
               [:from, :a, :c],
@@ -59,28 +85,35 @@ describe OrderTree::OrderTree do
   end
 
   it "initializes with a hash" do
-    debugger
     ot = OrderTree::OrderTree.new(@testhash)
+    ot2 = OrderTree::OrderTree.new(@testhash_insertion)
   end
 
   it "can retrieve based on path or nest" do
     ot = OrderTree::OrderTree.new(@testhash)
-    ot[:from][:a][:c].should eq 4
-    ot[:from, :a, :c].should eq 4
+    ot2 = OrderTree::OrderTree.new(@testhash_insertion)
+    [ot, ot2].map do |t|
+      t[:from][:a][:c].should eq 4
+      t[:from, :a, :c].should eq 4
+    end
   end
 
   it "can set based on path or nest" do
     ot = OrderTree::OrderTree.new(@testhash)
-    ot[:from][:a][:d] = 4
-    ot[:from, :a, :d].should eq 4
-    ot[:from, :a, :e] = 6
-    ot[:from][:a][:e].should eq 6
+    ot2 = OrderTree::OrderTree.new(@testhash_insertion)
+    [ot, ot2].map do |t|
+      t[:from][:a][:d] = 4
+      t[:from, :a, :d].should eq 4
+      t[:from, :a, :e] = 6
+      t[:from][:a][:e].should eq 6
+    end
   end
 
   it "remember the order" do
     ot = OrderTree::OrderTree.new(@testhash)
-    debugger
+    ot2 = OrderTree::OrderTree.new(@testhash_insertion)
     ot.each_path.to_a.should eq @order
+    ot2.each_path.to_a.should_not eq @order
   end
 
   it "does not reify the hash on access" do
@@ -113,10 +146,23 @@ describe OrderTree::OrderTree do
     ot2 = OrderTree::OrderTree.new @testhash
 
     ot.first.should eq ot2.first #because the underlying objects are compared
-    (ot == ot2).should_be true #each order and == on the object
-    ot.equal?(ot2).should_be false
+    (ot == ot2).should be_true #each order and == on the object
+    ot.equal?(ot2).should be_false
 
-    (ot.first.equal? ot2.first).should_be false
+    (ot.first.equal? ot2.first).should be_false
+  end
+
+  it "does != comparison" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot2 = OrderTree::OrderTree.new @testhash_insertion
+
+    (ot != ot2).should be_true
+  end
+
+  it "does leaf/node equality with contents_equal?" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot2 = OrderTree::OrderTree.new @testhash_insertion
+    (ot.contents_equal? ot2).should be_true
   end
      
   it "overwriting a key moves it to the end of the order" do
@@ -134,5 +180,28 @@ describe OrderTree::OrderTree do
     ot[:a,:b] = 5
     ot.each_path.to_a.should eq [[:a], [:c], [:a, :b]]
   end
+
+  it "returns a default when the key doesn't exist" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot.default = "foo"
+    ot[:to, :foo].should eq "foo"
+  end
+
+  it "can find the path for value" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot.path(7).should eq [:to, :to_to, :h]
+    ot.path(8).should be_nil
+
+    lambda do
+      ot.path!(7).should eq [:to, :to_to, :h]
+      ot.path!(8)
+    end.should raise_error OrderTree::PathNotFound
+  end
+
+  it "can run enumerable methods which depend on <=>" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot.max.should eq ot[*ot.path(ot.last)]
+    ot.min.should eq ot.first
+    ot.sort.should eq ot.order
+  end
 end
-    
