@@ -1,4 +1,5 @@
-require 'rspec'
+require 'spec_helper'
+
 require 'pp'
 
 require 'order_tree'
@@ -9,7 +10,10 @@ describe OrderTree::UniqueProxy do
     (4.equal? 4).should eq true #because fixnums are really the same object
     a = OrderTree::UniqueProxy.new(4)
     b = OrderTree::UniqueProxy.new(4)
+    c = OrderTree::UniqueProxy.new(5)
     (a == b).should eq true
+    (!c).should eq false
+    (c != a).should eq true
     (a.equal? b).should eq false
     (a.orig.equal? b.orig).should eq true
   end
@@ -104,13 +108,23 @@ describe OrderTree::OrderTree do
     ot.each_path.to_a.should eq order_paths
   end
 
+  it "does == comparison" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot2 = OrderTree::OrderTree.new @testhash
+
+    ot.first.should eq ot2.first #because the underlying objects are compared
+    (ot == ot2).should_be true #each order and == on the object
+    ot.equal?(ot2).should_be false
+
+    (ot.first.equal? ot2.first).should_be false
+  end
+     
   it "overwriting a key moves it to the end of the order" do
     ot = OrderTree::OrderTree.new
     ot[:a] = 4
     ot[:b] = 4
     ot.each_path.to_a.should eq [[:a], [:b]]
     ot[:a] = 5
-    debugger
     ot.each_path.to_a.should eq [[:b], [:a]]
   end
 
@@ -120,6 +134,5 @@ describe OrderTree::OrderTree do
     ot[:a,:b] = 5
     ot.each_path.to_a.should eq [[:a], [:c], [:a, :b]]
   end
-
 end
     
