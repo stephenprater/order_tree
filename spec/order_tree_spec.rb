@@ -5,6 +5,10 @@ require 'pp'
 require 'order_tree'
 
 describe OrderTree::UniqueProxy do
+  before :all do
+    Object.send :include, OrderTree::ProxyOperator
+  end
+
   it "can tell apart things that are the same" do
     (4 == 4).should eq true
     (4.equal? 4).should eq true #because fixnums are really the same object
@@ -25,11 +29,24 @@ describe OrderTree::UniqueProxy do
   end
 
   it "can identify a proxy" do
-    Object.send :include, OrderTree::ProxyOperator
     a = OrderTree::UniqueProxy.new(5)
-    debugger
+    proxy(5).should eq proxy(5)
+    (proxy(5).equal? proxy(5)).should be_false
     (proxy? a).should be_true
     (proxy? 5).should be_false
+  end
+
+  it "can help you inspect and to_s proxies" do
+    proxy(5).to_s.should eq "5"
+    proxy(5).inspect.should eq "5"
+    OrderTree::UniqueProxy.verbose_inspect = true
+    p = proxy(5) 
+    p.inspect.to_s.should match(/#<UniqueProxy:(.*?)\s=>\s5>/)
+    p.to_s.should == "proxy(5)"
+    OrderTree::UniqueProxy.verbose_inspect = false
+    p2 = eval(p.to_s)
+    p2.should eq p
+    (p2.equal? p).should be_false
   end
 end
 
@@ -141,13 +158,22 @@ describe OrderTree::OrderTree do
     ot.each_path.to_a.should eq order_paths
   end
 
+  it "can retrieve each pair" do
+    ot = OrderTree::OrderTree.new @testhash
+
+    ot.each_pair.with_index do |(p,v),i|
+      p.should eq @order[i]
+      ot[*p].should eq v
+    end
+  end
+
   it "does == comparison" do
     ot = OrderTree::OrderTree.new @testhash
     ot2 = OrderTree::OrderTree.new @testhash
 
-    ot.first.should eq ot2.first #because the underlying objects are compared
+    ot.first.should eq ot2.first #because underlying objects are compared 
     (ot == ot2).should be_true #each order and == on the object
-    ot.equal?(ot2).should be_false
+    ot.equal?(ot2).should be_false #we're comparing the proxies here
 
     (ot.first.equal? ot2.first).should be_false
   end
@@ -185,6 +211,15 @@ describe OrderTree::OrderTree do
     ot = OrderTree::OrderTree.new @testhash
     ot.default = "foo"
     ot[:to, :foo].should eq "foo"
+
+    #copies it to nested levels
+    ot.default = "bar"
+    ot[:to, :foo].should eq "bar"
+    
+    ot[:to, :to_to, :no_key].should eq "bar"
+
+    # does't matter how deep i look
+    ot[:foo, :bar, :foo, :monkey].should eq "bar"
   end
 
   it "can find the path for value" do
@@ -195,13 +230,78 @@ describe OrderTree::OrderTree do
     lambda do
       ot.path!(7).should eq [:to, :to_to, :h]
       ot.path!(8)
-    end.should raise_error OrderTree::PathNotFound
+    end.should raise_error OrderTree::OrderTree::PathNotFound
+  end
+
+  it "can prune the tree" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot.default = "bob"
+    ot.delete :from, :a, :b
+    ot[:from, :a, :b].should eq "bob"
+
+    to_to = ot.at :to, :to_to
+    to_to.remove
+    
+    ot[:to, :to_to].should eq "bob"
+  end
+
+  it "can find the path for a node object" do
+    ot = OrderTree::OrderTree.new @testhash
+    lambda do
+      ot.strict_path(7)
+    end.should raise_error ArgumentError
+
+    seven_node = ot.at *ot.path(7)
+    ot.strict_path(seven_node).should eq [:to, :to_to, :h]
+   
+    seven_node.remove
+    ot.strict_path(seven_node).should be_nil
+    #this is the internal call that it uses - it's just here for completeness
+    lambda do
+      ot.strict_path!(seven_node)
+    end.should raise_error OrderTree::OrderTree::PathNotFound
   end
 
   it "can run enumerable methods which depend on <=>" do
     ot = OrderTree::OrderTree.new @testhash
-    ot.max.should eq ot[*ot.path(ot.last)]
+    ot.max.should eq ot.last 
     ot.min.should eq ot.first
-    ot.sort.should eq ot.order
+    ot.sort.should eq ot.each_value.to_a
+
+    # roundabout
+    ot.max.should eq ot[*ot.strict_path!(ot.last)]
+    ot.min.should eq ot[*ot.strict_path!(ot.first)]
+  end
+
+  it "can tell you about insertion order, natch" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot2 = OrderTree::OrderTree.new @testhash_insertion
+    
+    (ot.at(:from, :a, :c).before(ot.at(:from, :a, :b))).should be_false
+    (ot.at(:from, :a, :b).before(ot.at(:to, :d))).should be_true
+
+    (ot.at(:from, :a, :c).after(ot.at(:from, :a, :b))).should be_true
+    (ot.at(:to, :e).after(ot.at(:from, :a, :b))).should be_true
+
+    #this probably is only possible if you're doing this.
+    (ot.at(:from, :a, :b) <=> ot.at(:from, :a, :b)).should eq 0
+  end
+
+  it "can't compare nodes across trees" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot2 = OrderTree::OrderTree.new @testhash_insertion
+    
+    lambda do
+      ot.at(:from, :a, :c).before(ot2.at(:from, :a, :b))
+    end.should raise_error ArgumentError
+  end
+
+  it "can run regular enumerable methods" do
+    # i'm not going to try all of these, just the one i know
+    # i didn't define.
+    ot = OrderTree::OrderTree.new @testhash
+    ot.each_cons(3).with_index do |v,idx|
+      v.collect { |e| e.path }.should eq @order[idx..idx+2]
+    end
   end
 end
