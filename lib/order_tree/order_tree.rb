@@ -8,6 +8,7 @@ module OrderTree
   # to the values it iterates
   class OrderTree
     include Enumerable
+    include ProxyOperator
 
     class PathNotFound < StandardError; end
 
@@ -44,7 +45,10 @@ module OrderTree
     # is not remembered within the order
     # @param [Object] obj
     def default= obj
-      @default = OrderTreeNode.new(obj,self)
+      unless proxy? obj
+        obj = OrderTreeNode.new(obj,self) 
+      end
+      @default = obj
       _delegate_hash.default = @default
       _delegate_hash.each_value do |v| 
         if v.is_a? OrderTree

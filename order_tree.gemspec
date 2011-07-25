@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
   s.platform    = Gem::Platform::RUBY
   s.authors     = ["Stephen Prater"]
   s.email       = ["stephenp@agrussell.com"]
-  s.homepage    = "http://github.comp/stephenprater/order_tree"
+  s.homepage    = "http://github.com/stephenprater/order_tree"
   s.summary     = %q{An unbalanced tree / nested hash which remember insertion order}
   s.description = %q{Use OrderTree when you need both insertion order access and nested hash path style access}
 

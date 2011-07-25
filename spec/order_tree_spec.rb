@@ -207,6 +207,13 @@ describe OrderTree::OrderTree do
     ot.each_path.to_a.should eq [[:a], [:c], [:a, :b]]
   end
 
+  it "does not double proxy the default" do
+    ot = OrderTree::OrderTree.new @testhash
+    (proxy? ot.default).should be_true
+    (proxy? ot[:foobar]).should be_false
+    (proxy? ot[:to, :to_to, :no_key]).should be_false
+  end
+
   it "returns a default when the key doesn't exist" do
     ot = OrderTree::OrderTree.new @testhash
     ot.default = "foo"
