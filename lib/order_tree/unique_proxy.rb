@@ -47,7 +47,7 @@ module OrderTree
     #   otherwise calls #inspect on the proxied object
     def inspect
       if UniqueProxy.verbose_inspect
-        "#<UniqueProxy::#{@uuid} => #{@obj.inspect}>"
+        "#<#{UniqueProxy}::#{@uuid} => #{@obj.inspect}>"
       else
         @obj.inspect
       end

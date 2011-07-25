@@ -167,6 +167,30 @@ describe OrderTree::OrderTree do
     end
   end
 
+  it "can overwrite nodes" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot[:from, :a, :c] = 'overwritten'
+   
+    new_pairs = ot.each_pair.to_a
+    p,v = new_pairs.last
+    p.should eq [:from, :a, :c]
+    v.should eq 'overwritten'
+   
+    ot[:from, :a, :c] = 'overwritten again'
+
+    p.should eq [:from, :a, :c]
+    ot[:from, :a, :c].should eq 'overwritten again'
+
+    new_pairs = ot.each_pair.to_a
+    p,v = new_pairs.first
+    p.should eq [:from, :a, :b]
+    v.should eq 4
+
+    p,v = new_pairs[3]
+    p.should eq [:to, :d]
+    v.should eq 4
+  end
+
   it "does == comparison" do
     ot = OrderTree::OrderTree.new @testhash
     ot2 = OrderTree::OrderTree.new @testhash

@@ -10,10 +10,15 @@ module OrderTree
     end
 
     def remove
-      self.next.prev = self.prev || nil 
-      if self.tree.root.first == self
+      prev_node = self.prev
+      next_node = self.next
+      self.next.prev = prev_node if self.next 
+      self.prev.next = next_node if self.prev 
+
+      if self.tree.root.first.equal? self
         self.tree.root.first = self.next
       end
+
       # try this so that the node can remove
       # itself fromt he tree
       my_path = self.path
