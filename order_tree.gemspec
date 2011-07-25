@@ -8,9 +8,9 @@ Gem::Specification.new do |s|
   s.platform    = Gem::Platform::RUBY
   s.authors     = ["Stephen Prater"]
   s.email       = ["stephenp@agrussell.com"]
-  s.homepage    = "agrussell.com"
-  s.summary     = %q{TODO: An unbalanced tree / nested hash which remember insertion order}
-  s.description = %q{TODO: Use OrderTree when you need both insertion order access and nested hash path style access}
+  s.homepage    = "http://github.comp/stephenprater/order_tree"
+  s.summary     = %q{An unbalanced tree / nested hash which remember insertion order}
+  s.description = %q{Use OrderTree when you need both insertion order access and nested hash path style access}
 
   s.rubyforge_project = "order_tree"
 
