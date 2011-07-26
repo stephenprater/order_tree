@@ -16,7 +16,19 @@ module OrderTree
       self.prev.next = next_node if self.prev 
 
       if self.tree.root.first.equal? self
-        self.tree.root.first = self.next
+        if next_node
+          self.tree.root.instance_eval do
+            self.first = next_node
+          end
+        end
+      end
+
+      if self.tree.root.last.equal? self
+        if prev_node
+          self.tree.root.instance_eval do
+            self.last = prev_node
+          end
+        end
       end
 
       # try this so that the node can remove

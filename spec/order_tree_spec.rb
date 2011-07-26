@@ -41,7 +41,7 @@ describe OrderTree::UniqueProxy do
     proxy(5).inspect.should eq "5"
     OrderTree::UniqueProxy.verbose_inspect = true
     p = proxy(5) 
-    p.inspect.to_s.should match(/#<UniqueProxy:(.*?)\s=>\s5>/)
+    p.inspect.to_s.should match(/#<OrderTree::UniqueProxy:(.*?)\s=>\s5>/)
     p.to_s.should == "proxy(5)"
     OrderTree::UniqueProxy.verbose_inspect = false
     p2 = eval(p.to_s)
@@ -189,6 +189,26 @@ describe OrderTree::OrderTree do
     p,v = new_pairs[3]
     p.should eq [:to, :d]
     v.should eq 4
+  end
+
+  it "can overwrite the last node without losing it" do
+    ot = OrderTree::OrderTree.new({:first => { :a => 'a', :b => 'c'}, :second => { :a => 'a', :b => 'b'}})
+    last_path = ot.each_path.to_a.last
+    ot[*last_path] = "b"
+
+    ot.each_path.to_a.last
+    ot[*last_path].should eq "b"
+  end
+
+  it "can overwrite the first node without losing it" do
+    ot = OrderTree::OrderTree.new({:first => { :a => 'a', :b => 'c'}, :second => { :a => 'a', :b => 'b'}})
+
+    first_path, second_path = ot.each_path.to_a[0..1]
+    ot[*first_path] = "old_first"
+
+    # is no last
+    ot[*ot.each_path.to_a.last].should eq "old_first"
+    ot.each_path.to_a.first.should eq second_path
   end
 
   it "does == comparison" do
