@@ -20,7 +20,7 @@ module OrderTree
     # @param [OrderTree] OrderTree - the root tree object.
     # @note The order of insertion might not be what you would expect for multi-
     #   level hash literals. The most deeply nested values will be inserted FIRST.
-    def initialize(constructor = {}, root = nil) 
+    def initialize(constructor = {}, root = nil)
       @_delegate_hash = {}
       self.root = root || self 
       constructor.each_with_object(self) do |(k,v),memo|
@@ -68,7 +68,7 @@ module OrderTree
     def each_pair
       return enum_for(:each_pair) unless block_given?
       self.each do |c|
-        yield c.path, c.orig 
+        yield c.path.dup, c.orig 
       end
     end
 
@@ -91,7 +91,7 @@ module OrderTree
     def each_path 
       return enum_for(:each_path) unless block_given?
       self.each do |v|
-        yield v.path
+        yield v.path.dup
       end
     end
     
@@ -280,12 +280,23 @@ module OrderTree
     end
     private :_find_delegate_hash
 
+    def _insert_ordered_node branch, path, value
+      if branch.has_key? path # i am overwriting a path
+        branch[path].remove
+      end
+      branch[path] = OrderTreeNode.new(value, self)
+      branch[path].prev = root.last if root.last
+      root.last.next = branch[path] if root.last
+      root.last = branch[path]
+    end
+    private :_insert_ordered_node
+
     # Prune branch from the tree
     # @param [Array] path
     def delete *paths
-      under = _find_delegate_hash *paths
-      if under.has_key? paths.last
-        under[paths.last].remove
+      branch = _find_delegate_hash *paths
+      if branch.has_key? paths.last
+        branch[paths.last].remove
       end
     end
 
@@ -293,27 +304,23 @@ module OrderTree
     # @param [Array] path
     # @param [Object] value
     def []= *paths, value
-      under = _find_delegate_hash *paths
-      
-      if value.kind_of? Hash or value.kind_of? OrderTree
+      branch = _find_delegate_hash *paths
+     
+      if value.kind_of? Hash or value.kind_of? OrderTree and not @no_expand_hash
         value = OrderTree.new(value, @root)
         value.default= self.root.default
       end
-
-      if under.has_key? paths.last # i am overwriting a path
-        under[paths.last].remove
-      end
-
-      under[paths.last] = OrderTreeNode.new(value, self)
-      under[paths.last].prev = root.last if root.last
-      root.last.next = under[paths.last] if root.last
-      root.last = under[paths.last]
-
-      #@order.push under[paths.last]
-      
-      #puts "insertion of '#{value}' in #{self.to_s} -> #{@order.to_s} (id #{under[paths.last].unique_id})"
+      _insert_ordered_node branch, paths.last, value
       value
     end
-    alias :store :[]=
+    
+    # Stores the value at path without expanding value into an OrderTree if it is a hash
+    # @param [Array] path
+    # @param [Object] value
+    def store *paths, value
+      branch = _find_delegate_hash *paths
+      _insert_ordered_node branch, paths.last, value
+      value
+    end
   end
 end

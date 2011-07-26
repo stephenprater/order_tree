@@ -22,6 +22,11 @@ describe OrderTree::UniqueProxy do
     (a.orig.equal? b.orig).should eq true
   end
 
+  it "unique proxy over nil should be == to itself" do
+    #proxy objects over nil do not respond correctly to "should"
+    (proxy(nil) == proxy(nil)).should be_true
+  end
+
   it "can retrieve the unique id" do
     a = OrderTree::UniqueProxy.new(4)
     b = OrderTree::UniqueProxy.new(4)
@@ -126,6 +131,23 @@ describe OrderTree::OrderTree do
     end
   end
 
+  it "can store hashes without expanding them by accessing the underlying hash" do
+    ot = OrderTree::OrderTree.new({:first => "a"})
+    ot[:first] = {:a => 2}
+    ot.min.path.should eq [:first, :a] #this is important later!
+
+    ot.max.path.should eq [:first] #because it will reinsier :first as an order_tree
+    ot[:first][:b] = 3
+    ot.max.path.should eq [:first, :b] #because first is an OrderTree 
+    lambda { ot[:first, :c, :d] = 3 }.should raise_error NoMethodError # because it can't reifiy tree leaves on create
+    ot[:first, :c] = { :d => 3}
+    ot.max.path.should eq [:first, :c]
+    ot.max.prev.path.should eq [:first, :c, :d] #because a hash was added with tree access
+    ot.store(:first, :c, { :e => 5})
+    ot.max.prev.path.should eq [:first,:c ,:d]
+    (ot[*ot.max.prev.path] == ot.default.orig).should be_true
+  end
+
   it "remember the order" do
     ot = OrderTree::OrderTree.new(@testhash)
     ot2 = OrderTree::OrderTree.new(@testhash_insertion)
@@ -210,6 +232,7 @@ describe OrderTree::OrderTree do
     ot[*ot.each_path.to_a.last].should eq "old_first"
     ot.each_path.to_a.first.should eq second_path
   end
+
 
   it "does == comparison" do
     ot = OrderTree::OrderTree.new @testhash

@@ -84,6 +84,7 @@ module OrderTree
     
     # @private
     def == arg
+      return true if @obj.nil? and arg.nil?
       @obj == arg
     end
     
