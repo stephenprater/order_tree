@@ -197,6 +197,10 @@ module OrderTree
       _delegate_hash.inspect
     end
 
+    def pretty_print(pp)
+      _delegate_hash.pretty_print(pp)
+    end
+
     # @param [OrderTree] other
     # @return [true] if self and other do not share all leaves or were inserted in a different order
     def != other
@@ -258,7 +262,23 @@ module OrderTree
       t = self.at *paths
       t.orig
     end
-
+    
+    # Returns true if the given path points to a non-default object
+    # @param [Array] path to check for
+    # @return [Boolean] true if path is not the default object
+    def has_key? *paths
+      t = self
+      penum = paths.each
+      loop do
+        current_path = penum.next
+        dh = t.__send__ :_delegate_hash
+        return false unless dh.has_key? current_path
+        t = dh[current_path]
+      end
+      true
+    rescue NoMethodError => e
+      return false if e.name == :_delegate_hash
+    end
 
     # @private
     def _find_delegate_hash *paths

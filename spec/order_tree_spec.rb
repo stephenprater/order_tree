@@ -120,6 +120,14 @@ describe OrderTree::OrderTree do
     end
   end
 
+  it "can tell you whether a path exists" do
+    ot = OrderTree::OrderTree.new(@testhash)
+    (ot.has_key? :from, :a, :c).should be_true
+    (ot.has_key? :from, :to, :c).should be_false
+    (ot.has_key? :from).should be_true
+    (ot.has_key? :from, :a, :c, :d).should be_false
+  end
+
   it "can set based on path or nest" do
     ot = OrderTree::OrderTree.new(@testhash)
     ot2 = OrderTree::OrderTree.new(@testhash_insertion)
