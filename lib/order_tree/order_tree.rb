@@ -266,7 +266,7 @@ module OrderTree
     # Returns true if the given path points to a non-default object
     # @param [Array] path to check for
     # @return [Boolean] true if path is not the default object
-    def has_key? *paths
+    def has_path? *paths
       t = self
       penum = paths.each
       loop do
@@ -279,6 +279,7 @@ module OrderTree
     rescue NoMethodError => e
       return false if e.name == :_delegate_hash
     end
+    alias :has_key? :has_path?
 
     # @private
     def _find_delegate_hash *paths
