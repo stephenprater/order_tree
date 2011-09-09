@@ -320,6 +320,20 @@ module OrderTree
         branch[paths.last].remove
       end
     end
+    
+    # The nodes of immediate branches under path 
+    # @param [Array] path
+    # @return [Enumerator] enumeration of the nodes under the reciever, in order
+    def branches *path
+      return enum_for(:branches, *path) unless block_given?
+      self.each_pair do |k,v|
+        if k.slice(0, path.size) == path
+          sub_key = k - k.slice(0,path.size)
+          v = proxy?(v) ? v.deproxy : v
+          yield sub_key[0], v unless sub_key.size != 1
+        end
+      end
+    end
 
     # Stores the value at path
     # @param [Array] path

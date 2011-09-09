@@ -327,6 +327,15 @@ describe OrderTree::OrderTree do
     ot[:to, :to_to].should eq "bob"
   end
 
+  it "can get the branches for node" do
+    ot = OrderTree::OrderTree.new @testhash
+    ot.branches(:from, :a).to_a.should eq [[:b,4], [:c,4]]
+    # it actually returns the ordertree (as it should) and not the underlying
+    # has, but for the sake of simplicity comare the string representations
+    ot.branches(:from).to_a.to_s.should eq "[[:a, {:b=>4, :c=>4}]]"
+    ot.branches.to_a.to_s.should eq "[[:from, {:a=>{:b=>4, :c=>4}}], [:to, {:d=>4, :e=>4, :to_to=>{:f=>5, :g=>6, :h=>7}}]]"
+  end
+
   it "can find the path for a node object" do
     ot = OrderTree::OrderTree.new @testhash
     lambda do

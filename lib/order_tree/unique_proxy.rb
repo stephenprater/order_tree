@@ -72,6 +72,10 @@ module OrderTree
       @obj
     end
     
+    def deproxy
+      @obj
+    end
+    
     # Dispatches methods calls to proxy target
     def method_missing(method, *args, &block)
       @obj.__send__ method, *args, &block

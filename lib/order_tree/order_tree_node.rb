@@ -44,6 +44,15 @@ module OrderTree
       self
     end
 
+    def deproxy
+      orig = self.orig.respond_to?(:dup) ? self.orig.dup : self.orig
+      if orig.respond_to? :each 
+        orig.each.map! { |i| proxy?(i) ? i.deproxy : i }
+      end
+      orig
+    end
+        
+
     def before other
       (self <=> other) == -1 ? true : false
     end
